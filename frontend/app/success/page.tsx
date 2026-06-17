@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./page.module.css";
 import { useSearchParams, useRouter } from "next/navigation";
 
-export default function Success() {
+function SuccessContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get("user_id");
   const [isUpdating, setIsUpdating] = useState(true);
@@ -25,7 +26,6 @@ export default function Success() {
         method: "POST",
       });
       if (res.ok) {
-        // Update local storage user if exists
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
           const user = JSON.parse(storedUser);
@@ -49,7 +49,6 @@ export default function Success() {
         <p className={styles.detail}>
           You'll now receive deep analysis reports according to your selected frequency.
         </p>
-        
         <div className={styles.nextSteps}>
           <h3>What's unlocked:</h3>
           <ul>
@@ -59,11 +58,18 @@ export default function Success() {
             <li>Custom Reporting Intervals</li>
           </ul>
         </div>
-
-        <Link href="/dashboard" className="btn btn-primary" style={{ width: '100%' }}>
+        <Link href="/dashboard" className="btn btn-primary" style={{ width: "100%" }}>
           Go to Dashboard
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function Success() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SuccessContent />
+    </Suspense>
   );
 }
