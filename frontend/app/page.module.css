@@ -1,0 +1,161 @@
+.main {
+  background-color: var(--background);
+}
+
+.nav {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  z-index: 100;
+}
+
+.navContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.logo span {
+  color: var(--primary);
+}
+
+.navLinks {
+  display: flex;
+  gap: 1rem;
+}
+
+.hero {
+  padding: 8rem 0 5rem;
+  text-align: center;
+  background: radial-gradient(circle at top, #eff6ff 0%, #ffffff 50%);
+}
+
+.badge {
+  display: inline-block;
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.hero h1 {
+  font-size: 4rem;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+}
+
+.hero h1 span {
+  color: var(--primary);
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  max-width: 700px;
+  margin: 0 auto 3rem;
+}
+
+.heroCtas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.noCredit {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.stats {
+  padding: 4rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+}
+
+.statItem h3 {
+  font-size: 2.5rem;
+  color: var(--primary);
+}
+
+.features {
+  padding: 6rem 0;
+  background-color: var(--surface);
+}
+
+.sectionTitle {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 4rem;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.iconBox {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.footer {
+  padding: 4rem 0 2rem;
+  background: #0f172a;
+  color: #94a3b8;
+}
+
+.footerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 2rem;
+}
+
+.footer .logo {
+  color: white;
+}
+
+.footerLinks {
+  display: flex;
+  gap: 2rem;
+}
+
+.footerLinks a:hover {
+  color: white;
+}
+
+.copy {
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .hero h1 { font-size: 2.5rem; }
+  .statGrid { grid-template-columns: 1fr; gap: 2rem; }
+  .navLinks { display: none; }
+}
