@@ -14,3 +14,4 @@ passlib[bcrypt]
 python-multipart
 apscheduler
 reportlab
+email-validator
