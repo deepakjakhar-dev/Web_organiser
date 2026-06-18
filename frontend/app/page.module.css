@@ -145,6 +145,10 @@
   gap: 2rem;
 }
 
+.footerLinks span {
+  color: #94a3b8;
+}
+
 .footerLinks a:hover {
   color: white;
 }

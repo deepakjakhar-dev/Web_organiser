@@ -100,7 +100,7 @@ export default function Dashboard() {
   return (
     <div className={styles.dashboardContainer}>
       <aside className={styles.sidebar}>
-        <h2>WeeklyReports</h2>
+        <h2>Sitewell</h2>
         <nav>
           <div className={`${styles.navItem} ${activeTab === 'overview' ? styles.navItemActive : ''}`} onClick={() => { setActiveTab('overview'); setSelectedSite(null); }}>🏠 Dashboard</div>
           <div className={`${styles.navItem} ${activeTab === 'profile' ? styles.navItemActive : ''}`} onClick={() => setActiveTab('profile')}>👤 Profile</div>
@@ -179,23 +179,49 @@ export default function Dashboard() {
           </div>
         )}
         {activeTab === 'profile' && (
-          <div className="card">
-            <h2>User Profile</h2>
-            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input className="input-field" placeholder="Your Name" value={name} onChange={(e) => setName(e.target.value)} />
-              <input className="input-field" placeholder="Company Name" value={company} onChange={(e) => setCompany(e.target.value)} />
-              <input className="input-field" placeholder="Primary Website URL" value={profileWebsite} onChange={(e) => setProfileWebsite(e.target.value)} />
-              <label>Upload Report Logo (Pro)</label>
-              <input type="file" onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if(file) {
-                    const formData = new FormData();
-                    formData.append("file", file);
-                    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/user/${user.id}/upload-logo`, { method: "POST", body: formData })
-                    .then(res => res.ok && alert("Logo uploaded!"));
-                  }
-              }} />
-              <button className="btn btn-primary" style={{ width: 'auto' }} onClick={handleSaveProfile}>Save Profile</button>
+          <div className={styles.profileCard}>
+            <div className={styles.profileHero}>
+              <div className={styles.profileAvatar}>
+                {name?.trim()?.charAt(0)?.toUpperCase() || "S"}
+              </div>
+              <div>
+                <p className={styles.profileEyebrow}>Workspace profile</p>
+                <h2>{name || "Sitewell user"}</h2>
+                <p className={styles.profileMeta}>
+                  {company || "Add your company details to personalize reports."}
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.profileGrid}>
+              <div className={styles.profileField}>
+                <label>Your name</label>
+                <input className="input-field" placeholder="Ava Patel" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className={styles.profileField}>
+                <label>Company name</label>
+                <input className="input-field" placeholder="Northwind Studio" value={company} onChange={(e) => setCompany(e.target.value)} />
+              </div>
+              <div className={styles.profileFieldWide}>
+                <label>Primary website URL</label>
+                <input className="input-field" placeholder="https://yourcompany.com" value={profileWebsite} onChange={(e) => setProfileWebsite(e.target.value)} />
+              </div>
+              <div className={styles.profileFieldWide}>
+                <label>Upload report logo</label>
+                <input type="file" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if(file) {
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/user/${user.id}/upload-logo`, { method: "POST", body: formData })
+                      .then(res => res.ok && alert("Logo uploaded!"));
+                    }
+                }} />
+              </div>
+            </div>
+
+            <div className={styles.profileActions}>
+              <button className="btn btn-primary" onClick={handleSaveProfile}>Save Profile</button>
             </div>
           </div>
         )}

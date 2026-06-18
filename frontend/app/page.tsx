@@ -7,7 +7,7 @@ export default function Home() {
       {/* Navbar */}
       <nav className={styles.nav}>
         <div className={`container ${styles.navContent}`}>
-          <div className={styles.logo}>WeeklyReports<span>.pro</span></div>
+          <div className={styles.logo}>Sitewell</div>
           <div className={styles.navLinks}>
             <Link href="/login" className="btn btn-outline">Log in</Link>
             <Link href="/signup" className="btn btn-primary">Start Free Trial</Link>
@@ -18,7 +18,7 @@ export default function Home() {
       {/* Hero Section */}
       <header className={styles.hero}>
         <div className="container">
-          <div className={styles.badge}>Trust by 500+ small businesses</div>
+          <div className={styles.badge}>Built for small business owners</div>
           <h1>Monitor your website <br /><span>without lifting a finger.</span></h1>
           <p className={styles.subtitle}>
             Professional uptime, performance, and broken link reports delivered to your inbox. 
@@ -81,14 +81,14 @@ export default function Home() {
       <footer className={styles.footer}>
         <div className="container">
           <div className={styles.footerContent}>
-            <div className={styles.logo}>WeeklyReports<span>.pro</span></div>
+            <div className={styles.logo}>Sitewell</div>
             <div className={styles.footerLinks}>
-              <Link href="/privacy">Privacy</Link>
-              <Link href="/terms">Terms</Link>
-              <Link href="/contact">Support</Link>
+              <span>Privacy coming soon</span>
+              <span>Terms coming soon</span>
+              <span>Support coming soon</span>
             </div>
           </div>
-          <p className={styles.copy}>&copy; 2026 WeeklyReports Pro. All rights reserved.</p>
+          <p className={styles.copy}>&copy; 2026 Sitewell. All rights reserved.</p>
         </div>
       </footer>
     </div>
