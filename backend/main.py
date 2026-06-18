@@ -20,6 +20,9 @@ import socket
 from urllib.parse import urlparse
 from reportlab.pdfgen import canvas
 import shutil
+import base64
+import smtplib
+from email.message import EmailMessage
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +32,11 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID")
 PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+REPORT_FROM_EMAIL = os.getenv("REPORT_FROM_EMAIL", "Sitewell <reports@sitewell.app>")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 FREE_TIER_MAX_WEBSITES = int(os.getenv("FREE_TIER_MAX_WEBSITES", "1"))
 
@@ -88,6 +96,15 @@ class Ping(Base):
     response_time = Column(Float)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     website = relationship("Website", back_populates="pings")
+
+class ReportDelivery(Base):
+    __tablename__ = "report_deliveries"
+    id = Column(Integer, primary_key=True, index=True)
+    website_id = Column(Integer, ForeignKey("websites.id"), index=True)
+    sent_at = Column(DateTime(timezone=True), server_default=func.now())
+    period = Column(String, default="weekly")
+    status = Column(String, default="sent")
+    website = relationship("Website")
 
 Base.metadata.create_all(bind=Engine)
 
@@ -152,6 +169,130 @@ def get_db():
     db = SessionLocal()
     try: yield db
     finally: db.close()
+
+def frequency_to_delta(frequency: str) -> timedelta:
+    if frequency == "daily":
+        return timedelta(days=1)
+    if frequency == "monthly":
+        return timedelta(days=30)
+    return timedelta(days=7)
+
+def build_report_payload(website: Website, db: Session):
+    latest_ping = db.query(Ping).filter(Ping.website_id == website.id).order_by(Ping.created_at.desc()).first()
+    stats = {
+        "status": "Unknown",
+        "latency": "N/A",
+        "ssl": website.ssl_expiry.strftime("%Y-%m-%d") if website.ssl_expiry else "N/A",
+        "security": "Insecure" if website.is_blacklisted else "Safe",
+    }
+    if latest_ping:
+        stats["status"] = "Online" if 200 <= latest_ping.status_code < 400 else "Offline"
+        stats["latency"] = f"{round(latest_ping.response_time * 1000, 2)}ms"
+    return stats
+
+def send_report_email(website: Website, db: Session):
+    stats = build_report_payload(website, db)
+    pdf_path = generate_pdf_to_path(website, db)
+    try:
+        with open(pdf_path, "rb") as pdf_file:
+            pdf_bytes = pdf_file.read()
+
+        html_body = f"""
+            <div style="font-family: Arial, sans-serif; line-height: 1.6">
+              <h2>Sitewell report for {website.url}</h2>
+              <p>Status: <strong>{stats['status']}</strong></p>
+              <p>Latency: <strong>{stats['latency']}</strong></p>
+              <p>SSL expiry: <strong>{stats['ssl']}</strong></p>
+              <p>Security: <strong>{stats['security']}</strong></p>
+              <p>Your PDF report is attached.</p>
+            </div>
+        """
+
+        if SMTP_USERNAME and SMTP_APP_PASSWORD:
+            msg = EmailMessage()
+            msg["Subject"] = f"Sitewell report for {website.url}"
+            msg["From"] = REPORT_FROM_EMAIL
+            msg["To"] = website.owner.email
+            msg.set_content(
+                f"Sitewell report for {website.url}\n"
+                f"Status: {stats['status']}\n"
+                f"Latency: {stats['latency']}\n"
+                f"SSL expiry: {stats['ssl']}\n"
+                f"Security: {stats['security']}\n"
+            )
+            msg.add_alternative(html_body, subtype="html")
+            msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf", filename=os.path.basename(pdf_path))
+
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+                server.login(SMTP_USERNAME, SMTP_APP_PASSWORD)
+                server.send_message(msg)
+        elif RESEND_API_KEY:
+            payload = {
+                "from": REPORT_FROM_EMAIL,
+                "to": [website.owner.email],
+                "subject": f"Sitewell report for {website.url}",
+                "html": html_body,
+                "attachments": [
+                    {
+                        "filename": os.path.basename(pdf_path),
+                        "content": base64.b64encode(pdf_bytes).decode("utf-8"),
+                    }
+                ],
+            }
+            res = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=20,
+            )
+            if not res.ok:
+                print(f"Email send failed for website {website.id}: {res.text}")
+                return False
+        else:
+            print("Skipping email send: no SMTP credentials or RESEND_API_KEY configured")
+            return False
+
+        db.add(ReportDelivery(website_id=website.id, period=website.report_frequency, status="sent"))
+        db.commit()
+        return True
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+
+def generate_pdf_to_path(website: Website, db: Session):
+    latest_ping = db.query(Ping).filter(Ping.website_id == website.id).order_by(Ping.created_at.desc()).first()
+    status = "Online" if latest_ping and 200 <= latest_ping.status_code < 400 else "Offline"
+    latency = f"{round(latest_ping.response_time * 1000, 2)}ms" if latest_ping else "N/A"
+    ssl = website.ssl_expiry.strftime('%Y-%m-%d') if website.ssl_expiry else "N/A"
+    security = "Insecure" if website.is_blacklisted else "Safe"
+
+    filename = f"report_{website.id}.pdf"
+    c = canvas.Canvas(filename)
+    if website.white_label_logo and os.path.exists(website.white_label_logo):
+        c.drawImage(website.white_label_logo, 100, 780, width=50, height=50)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(100, 750, f"Weekly Report for {website.url}")
+    c.setFont("Helvetica", 12)
+    c.drawString(100, 720, f"Status: {status}")
+    c.drawString(100, 700, f"Latency: {latency}")
+    c.drawString(100, 680, f"SSL Expiry: {ssl}")
+    c.drawString(100, 660, f"Security Status: {security}")
+    c.save()
+    return filename
+
+def report_is_due(website: Website, db: Session):
+    last_delivery = (
+        db.query(ReportDelivery)
+        .filter(ReportDelivery.website_id == website.id, ReportDelivery.period == website.report_frequency, ReportDelivery.status == "sent")
+        .order_by(ReportDelivery.sent_at.desc())
+        .first()
+    )
+    if not last_delivery:
+        return True
+    return datetime.utcnow() - last_delivery.sent_at.replace(tzinfo=None) >= frequency_to_delta(website.report_frequency)
 
 @app.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -357,6 +498,13 @@ def run_checks():
         w.ssl_expiry = get_ssl_expiry(w.url)
         w.is_blacklisted = check_security_blacklist(w.url)
         db.commit()
+
+    for w in websites:
+        if w.owner and w.owner.is_subscribed and report_is_due(w, db):
+            try:
+                send_report_email(w, db)
+            except Exception as e:
+                print(f"Failed to send report email for {w.url}: {e}")
     db.close()
 
 scheduler = BackgroundScheduler()
