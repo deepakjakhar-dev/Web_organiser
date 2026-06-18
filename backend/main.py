@@ -30,6 +30,7 @@ PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID")
 PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+FREE_TIER_MAX_WEBSITES = int(os.getenv("FREE_TIER_MAX_WEBSITES", "1"))
 
 # Initialize Stripe
 if STRIPE_SECRET_KEY and "sk_test" in STRIPE_SECRET_KEY:
@@ -189,6 +190,18 @@ def get_security_status(website_id: int, db: Session = Depends(get_db)):
 
 @app.post("/websites", response_model=WebsiteResponse)
 def create_website(site: WebsiteCreate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == site.user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if not user.is_subscribed:
+        website_count = db.query(Website).filter(Website.user_id == site.user_id).count()
+        if website_count >= FREE_TIER_MAX_WEBSITES:
+            raise HTTPException(
+                status_code=403,
+                detail="Free plan is limited to one website. Upgrade to Pro for unlimited monitoring.",
+            )
+
     db_site = Website(
         user_id=site.user_id, 
         url=site.url, 
@@ -263,6 +276,12 @@ def create_paypal_order(data: CheckoutSessionCreate, db: Session = Depends(get_d
 
 @app.post("/user/{user_id}/upload-logo")
 async def upload_logo(user_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    if not user.is_subscribed:
+        raise HTTPException(403, "Pro feature required")
+
     os.makedirs("uploads", exist_ok=True)
     file_path = f"uploads/{user_id}_{file.filename}"
     with open(file_path, "wb") as buffer:
