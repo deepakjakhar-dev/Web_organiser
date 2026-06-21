@@ -18,6 +18,7 @@ import time
 import ssl
 import socket
 from urllib.parse import urlparse
+from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 import shutil
 import base64
@@ -184,10 +185,32 @@ def build_report_payload(website: Website, db: Session):
         "latency": "N/A",
         "ssl": website.ssl_expiry.strftime("%Y-%m-%d") if website.ssl_expiry else "N/A",
         "security": "Insecure" if website.is_blacklisted else "Safe",
+        "summary": "No checks have run yet.",
+        "recommendation": "No action needed yet.",
     }
     if latest_ping:
-        stats["status"] = "Online" if 200 <= latest_ping.status_code < 400 else "Offline"
-        stats["latency"] = f"{round(latest_ping.response_time * 1000, 2)}ms"
+        is_online = 200 <= latest_ping.status_code < 400
+        latency_ms = round(latest_ping.response_time * 1000, 2)
+        stats["status"] = "Online" if is_online else "Offline"
+        stats["latency"] = f"{latency_ms}ms"
+        if not is_online:
+          stats["summary"] = "The latest check could not reach the site."
+          stats["recommendation"] = "Check hosting, DNS, or a recent deployment."
+        elif latency_ms > 1200:
+          stats["summary"] = "The site is online but responding slowly."
+          stats["recommendation"] = "Review performance, images, or server load."
+        else:
+          stats["summary"] = "The site is responding normally."
+          stats["recommendation"] = "No immediate action required."
+
+    if website.ssl_expiry:
+        days_left = (website.ssl_expiry.date() - datetime.utcnow().date()).days
+        if days_left <= 14:
+            stats["summary"] = f"SSL expires soon in {max(days_left, 0)} days."
+            stats["recommendation"] = "Renew the certificate before it expires."
+    if website.is_blacklisted:
+        stats["summary"] = "Security checks flagged a possible risk."
+        stats["recommendation"] = "Review the site security status and hosting setup."
     return stats
 
 def send_report_email(website: Website, db: Session):
@@ -199,11 +222,13 @@ def send_report_email(website: Website, db: Session):
 
         html_body = f"""
             <div style="font-family: Arial, sans-serif; line-height: 1.6">
-              <h2>Sitewell report for {website.url}</h2>
+              <h2 style="margin-bottom: 8px;">Sitewell report for {website.url}</h2>
+              <p style="color: #64748b; margin-top: 0;">{stats['summary']}</p>
               <p>Status: <strong>{stats['status']}</strong></p>
               <p>Latency: <strong>{stats['latency']}</strong></p>
               <p>SSL expiry: <strong>{stats['ssl']}</strong></p>
               <p>Security: <strong>{stats['security']}</strong></p>
+              <p>Recommendation: <strong>{stats['recommendation']}</strong></p>
               <p>Your PDF report is attached.</p>
             </div>
         """
@@ -263,23 +288,68 @@ def send_report_email(website: Website, db: Session):
             os.remove(pdf_path)
 
 def generate_pdf_to_path(website: Website, db: Session):
-    latest_ping = db.query(Ping).filter(Ping.website_id == website.id).order_by(Ping.created_at.desc()).first()
-    status = "Online" if latest_ping and 200 <= latest_ping.status_code < 400 else "Offline"
-    latency = f"{round(latest_ping.response_time * 1000, 2)}ms" if latest_ping else "N/A"
-    ssl = website.ssl_expiry.strftime('%Y-%m-%d') if website.ssl_expiry else "N/A"
-    security = "Insecure" if website.is_blacklisted else "Safe"
-
+    stats = build_report_payload(website, db)
     filename = f"report_{website.id}.pdf"
     c = canvas.Canvas(filename)
+    width, height = 595, 842
+
+    c.setFillColor(colors.HexColor("#F8FAFC"))
+    c.rect(0, 0, width, height, fill=1, stroke=0)
+
     if website.white_label_logo and os.path.exists(website.white_label_logo):
-        c.drawImage(website.white_label_logo, 100, 780, width=50, height=50)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(100, 750, f"Weekly Report for {website.url}")
-    c.setFont("Helvetica", 12)
-    c.drawString(100, 720, f"Status: {status}")
-    c.drawString(100, 700, f"Latency: {latency}")
-    c.drawString(100, 680, f"SSL Expiry: {ssl}")
-    c.drawString(100, 660, f"Security Status: {security}")
+        c.drawImage(website.white_label_logo, 42, 770, width=44, height=44, mask='auto')
+
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(42, 748, "Sitewell Monitoring Report")
+    c.setFont("Helvetica", 11)
+    c.setFillColor(colors.HexColor("#475569"))
+    c.drawString(42, 730, website.url)
+    c.drawString(42, 712, f"Generated {datetime.utcnow().strftime('%b %d, %Y %H:%M UTC')}")
+
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.roundRect(40, 545, 515, 135, 14, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(58, 655, "Summary")
+    c.setFont("Helvetica", 11)
+    c.setFillColor(colors.HexColor("#334155"))
+    c.drawString(58, 632, stats["summary"])
+    c.drawString(58, 614, f"Recommendation: {stats['recommendation']}")
+
+    panels = [
+        ("Status", stats["status"]),
+        ("Latency", stats["latency"]),
+        ("SSL Expiry", stats["ssl"]),
+        ("Security", stats["security"]),
+    ]
+    x_positions = [40, 297]
+    y_positions = [470, 365]
+    index = 0
+    for y in y_positions:
+        for x in x_positions:
+            label, value = panels[index]
+            c.setFillColor(colors.HexColor("#FFFFFF"))
+            c.roundRect(x, y, 245, 82, 12, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#64748B"))
+            c.setFont("Helvetica", 10)
+            c.drawString(x + 16, y + 56, label)
+            c.setFillColor(colors.HexColor("#0F172A"))
+            c.setFont("Helvetica-Bold", 15)
+            c.drawString(x + 16, y + 30, value)
+            index += 1
+
+    c.setFillColor(colors.HexColor("#DBEAFE"))
+    c.roundRect(40, 250, 515, 82, 12, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#1D4ED8"))
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(58, 304, "What this means")
+    c.setFont("Helvetica", 11)
+    c.drawString(58, 282, "Use this report to quickly check if your website needs attention this week.")
+
+    c.setFillColor(colors.HexColor("#94A3B8"))
+    c.setFont("Helvetica", 9)
+    c.drawString(42, 40, "Generated by Sitewell")
     c.save()
     return filename
 
