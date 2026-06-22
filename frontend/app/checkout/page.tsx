@@ -17,12 +17,12 @@ export default function CheckoutPage() {
   return (
     <div className="container" style={{ marginTop: '3rem', maxWidth: '500px' }}>
       <div className="card">
-        <h1>Confirm Subscription</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Review your plan details before proceeding to secure payment.</p>
+        <h1>Upgrade to Sitewell Pro</h1>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Review the plan details before continuing to secure payment.</p>
         
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem 0', borderBottom: '1px solid #eee' }}>
-            <span>Weekly Website Report Pro</span>
+            <span>Sitewell Pro</span>
             <strong>$10.00 / month</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem 0' }}>

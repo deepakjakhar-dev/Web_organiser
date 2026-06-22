@@ -19,7 +19,10 @@ import ssl
 import socket
 from urllib.parse import urlparse
 from reportlab.lib import colors
-from reportlab.pdfgen import canvas
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 import shutil
 import base64
 import smtplib
@@ -290,67 +293,170 @@ def send_report_email(website: Website, db: Session):
 def generate_pdf_to_path(website: Website, db: Session):
     stats = build_report_payload(website, db)
     filename = f"report_{website.id}.pdf"
-    c = canvas.Canvas(filename)
-    width, height = 595, 842
+    doc = SimpleDocTemplate(
+        filename,
+        pagesize=(8.27 * inch, 11.69 * inch),
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+    )
 
-    c.setFillColor(colors.HexColor("#F8FAFC"))
-    c.rect(0, 0, width, height, fill=1, stroke=0)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "SitewellTitle",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=20,
+        leading=24,
+        textColor=colors.HexColor("#0F172A"),
+        alignment=TA_LEFT,
+        spaceAfter=6,
+    )
+    subtitle_style = ParagraphStyle(
+        "SitewellSubtitle",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=10.5,
+        leading=14,
+        textColor=colors.HexColor("#475569"),
+        spaceAfter=8,
+    )
+    section_style = ParagraphStyle(
+        "SitewellSection",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#0F172A"),
+        spaceBefore=6,
+        spaceAfter=6,
+    )
+    body_style = ParagraphStyle(
+        "SitewellBody",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=10.5,
+        leading=14,
+        textColor=colors.HexColor("#334155"),
+    )
+    small_style = ParagraphStyle(
+        "SitewellSmall",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=11,
+        textColor=colors.HexColor("#64748B"),
+    )
 
-    if website.white_label_logo and os.path.exists(website.white_label_logo):
-        c.drawImage(website.white_label_logo, 42, 770, width=44, height=44, mask='auto')
+    latest_ping = db.query(Ping).filter(Ping.website_id == website.id).order_by(Ping.created_at.desc()).first()
+    recent_pings = (
+        db.query(Ping)
+        .filter(Ping.website_id == website.id)
+        .order_by(Ping.created_at.desc())
+        .limit(5)
+        .all()
+    )
 
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.setFont("Helvetica-Bold", 18)
-    c.drawString(42, 748, "Sitewell Monitoring Report")
-    c.setFont("Helvetica", 11)
-    c.setFillColor(colors.HexColor("#475569"))
-    c.drawString(42, 730, website.url)
-    c.drawString(42, 712, f"Generated {datetime.utcnow().strftime('%b %d, %Y %H:%M UTC')}")
+    story = []
+    story.append(Paragraph("Sitewell Monitoring Report", title_style))
+    story.append(Paragraph(website.url, subtitle_style))
+    story.append(Paragraph(f"Generated {datetime.utcnow().strftime('%b %d, %Y %H:%M UTC')}", small_style))
+    story.append(Spacer(1, 0.15 * inch))
 
-    c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.roundRect(40, 545, 515, 135, 14, fill=1, stroke=0)
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.setFont("Helvetica-Bold", 13)
-    c.drawString(58, 655, "Summary")
-    c.setFont("Helvetica", 11)
-    c.setFillColor(colors.HexColor("#334155"))
-    c.drawString(58, 632, stats["summary"])
-    c.drawString(58, 614, f"Recommendation: {stats['recommendation']}")
+    top_table = Table(
+        [
+            ["Status", stats["status"], "Latency", stats["latency"]],
+            ["SSL Expiry", stats["ssl"], "Security", stats["security"]],
+        ],
+        colWidths=[1.05 * inch, 1.9 * inch, 1.05 * inch, 1.9 * inch],
+    )
+    top_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#0F172A")),
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#CBD5E1")),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8FAFC")),
+                ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8FAFC")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
+    story.append(top_table)
+    story.append(Spacer(1, 0.2 * inch))
 
-    panels = [
-        ("Status", stats["status"]),
-        ("Latency", stats["latency"]),
-        ("SSL Expiry", stats["ssl"]),
-        ("Security", stats["security"]),
-    ]
-    x_positions = [40, 297]
-    y_positions = [470, 365]
-    index = 0
-    for y in y_positions:
-        for x in x_positions:
-            label, value = panels[index]
-            c.setFillColor(colors.HexColor("#FFFFFF"))
-            c.roundRect(x, y, 245, 82, 12, fill=1, stroke=0)
-            c.setFillColor(colors.HexColor("#64748B"))
-            c.setFont("Helvetica", 10)
-            c.drawString(x + 16, y + 56, label)
-            c.setFillColor(colors.HexColor("#0F172A"))
-            c.setFont("Helvetica-Bold", 15)
-            c.drawString(x + 16, y + 30, value)
-            index += 1
+    story.append(Paragraph("Summary", section_style))
+    story.append(Paragraph(stats["summary"], body_style))
+    story.append(Spacer(1, 0.08 * inch))
+    story.append(Paragraph(f"Recommendation: {stats['recommendation']}", body_style))
+    story.append(Spacer(1, 0.16 * inch))
 
-    c.setFillColor(colors.HexColor("#DBEAFE"))
-    c.roundRect(40, 250, 515, 82, 12, fill=1, stroke=0)
-    c.setFillColor(colors.HexColor("#1D4ED8"))
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(58, 304, "What this means")
-    c.setFont("Helvetica", 11)
-    c.drawString(58, 282, "Use this report to quickly check if your website needs attention this week.")
+    story.append(Paragraph("What this report means", section_style))
+    story.append(
+        Paragraph(
+            "This weekly view is designed to give a small business owner a fast answer: is the site healthy, is it slow, and does anything need attention right now?",
+            body_style,
+        )
+    )
+    story.append(Spacer(1, 0.14 * inch))
 
-    c.setFillColor(colors.HexColor("#94A3B8"))
-    c.setFont("Helvetica", 9)
-    c.drawString(42, 40, "Generated by Sitewell")
-    c.save()
+    story.append(Paragraph("Recent checks", section_style))
+    if recent_pings:
+        ping_rows = [["Time", "Status", "Latency"]]
+        for ping in recent_pings:
+          status_label = "Online" if 200 <= ping.status_code < 400 else "Offline"
+          latency_label = f"{round(ping.response_time * 1000, 2)} ms"
+          ping_rows.append([ping.created_at.strftime("%b %d %H:%M"), status_label, latency_label])
+        ping_table = Table(ping_rows, colWidths=[2.2 * inch, 1.2 * inch, 1.2 * inch])
+        ping_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#DBEAFE")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1D4ED8")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                    ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#CBD5E1")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
+        story.append(ping_table)
+    else:
+        story.append(Paragraph("No recent check history yet. Once more checks run, this section will show the last few results.", body_style))
+    story.append(Spacer(1, 0.16 * inch))
+
+    story.append(Paragraph("Next steps", section_style))
+    story.append(
+        Paragraph(
+            "If the site is offline, check hosting and DNS. If it is slow, review images, scripts, and server load. If SSL is close to expiry, renew the certificate before it interrupts customers.",
+            body_style,
+        )
+    )
+    story.append(Spacer(1, 0.16 * inch))
+
+    story.append(Paragraph("Sitewell", small_style))
+    story.append(Paragraph("Generated automatically for your weekly website review.", small_style))
+
+    def draw_bg(canvas_obj, doc_obj):
+        canvas_obj.setFillColor(colors.HexColor("#F8FAFC"))
+        canvas_obj.rect(0, 0, doc_obj.pagesize[0], doc_obj.pagesize[1], fill=1, stroke=0)
+        canvas_obj.setFillColor(colors.HexColor("#CBD5E1"))
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawRightString(doc_obj.pagesize[0] - 36, 24, "Sitewell report")
+
+    doc.build(story, onFirstPage=draw_bg, onLaterPages=draw_bg)
     return filename
 
 def report_is_due(website: Website, db: Session):

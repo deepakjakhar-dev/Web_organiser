@@ -40,15 +40,15 @@ export default function Login() {
 
   return (
     <div className={styles.container}>
-      <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '1rem' }}>Welcome Back</h1>
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem' }}>
+      <div className="card" style={{ maxWidth: "400px", width: "100%" }}>
+        <h1 style={{ textAlign: "center", marginBottom: "1rem" }}>Welcome back to Sitewell</h1>
+        <p style={{ textAlign: "center", color: "var(--text-muted)", marginBottom: "2rem" }}>
           Log in to manage your website monitoring.
         </p>
-        
+
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Email Address</label>
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>Email Address</label>
             <input
               type="email"
               className="input-field"
@@ -58,27 +58,30 @@ export default function Login() {
               placeholder="name@company.com"
             />
           </div>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Password</label>
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>Password</label>
             <input
               type="password"
               className="input-field"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="••••••••"
+              placeholder="Enter your password"
             />
           </div>
-          
-          {error && <p style={{ color: 'var(--error)', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</p>}
-          
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isLoading}>
-            {isLoading ? "Logging in..." : "Log In"}
+
+          {error && <p style={{ color: "var(--error)", marginBottom: "1rem", fontSize: "0.875rem" }}>{error}</p>}
+
+          <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={isLoading}>
+            {isLoading ? "Logging in..." : "Log in"}
           </button>
         </form>
-        
-        <p style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.875rem' }}>
-          Don't have an account? <Link href="/signup" style={{ color: 'var(--primary)', fontWeight: '600' }}>Sign up</Link>
+
+        <p style={{ marginTop: "2rem", textAlign: "center", fontSize: "0.875rem" }}>
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" style={{ color: "var(--primary)", fontWeight: "600" }}>
+            Sign up
+          </Link>
         </p>
       </div>
     </div>

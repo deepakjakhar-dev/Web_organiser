@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Sitewell",
   description: "Sitewell helps small business owners monitor uptime, performance, and broken links.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

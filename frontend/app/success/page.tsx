@@ -4,13 +4,12 @@ import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./page.module.css";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get("user_id");
   const [isUpdating, setIsUpdating] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     if (userId) {
@@ -44,18 +43,18 @@ function SuccessContent() {
     <div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.icon}>🎉</div>
-        <h1>{isUpdating ? "Confirming Payment..." : "Welcome to Pro!"}</h1>
-        <p>Your subscription is active and your professional monitoring has started.</p>
+        <h1>{isUpdating ? "Confirming payment..." : "You are on Sitewell Pro"}</h1>
+        <p>Your subscription is active and your reporting has started.</p>
         <p className={styles.detail}>
-          You'll now receive deep analysis reports according to your selected frequency.
+          You&apos;ll now receive deeper reports, PDF export, and historical trend tracking.
         </p>
         <div className={styles.nextSteps}>
-          <h3>What's unlocked:</h3>
+          <h3>What&apos;s unlocked:</h3>
           <ul>
-            <li>Deep PageSpeed Analysis</li>
-            <li>Broken Link Detection</li>
-            <li>Historical Uptime Charts</li>
-            <li>Custom Reporting Intervals</li>
+            <li>Historical uptime charts</li>
+            <li>Broken link detection</li>
+            <li>PDF report export</li>
+            <li>Custom reporting intervals</li>
           </ul>
         </div>
         <Link href="/dashboard" className="btn btn-primary" style={{ width: "100%" }}>
