@@ -612,27 +612,9 @@ def generate_pdf(website_id: int, db: Session = Depends(get_db)):
     website = db.query(Website).filter(Website.id == website_id).first()
     if not website or not website.owner.is_subscribed:
         raise HTTPException(403, "Pro feature required")
-    
-    latest_ping = db.query(Ping).filter(Ping.website_id == website_id).order_by(Ping.created_at.desc()).first()
-    status = "Online" if latest_ping and 200 <= latest_ping.status_code < 400 else "Offline"
-    latency = f"{round(latest_ping.response_time * 1000, 2)}ms" if latest_ping else "N/A"
-    ssl = website.ssl_expiry.strftime('%Y-%m-%d') if website.ssl_expiry else "N/A"
-    security = "Insecure" if website.is_blacklisted else "Safe"
-    
-    filename = f"report_{website_id}.pdf"
-    c = canvas.Canvas(filename)
-    if website.white_label_logo and os.path.exists(website.white_label_logo):
-        c.drawImage(website.white_label_logo, 100, 780, width=50, height=50)
-        
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(100, 750, f"Weekly Report for {website.url}")
-    c.setFont("Helvetica", 12)
-    c.drawString(100, 720, f"Status: {status}")
-    c.drawString(100, 700, f"Latency: {latency}")
-    c.drawString(100, 680, f"SSL Expiry: {ssl}")
-    c.drawString(100, 660, f"Security Status: {security}")
-    c.save()
-    return FileResponse(filename, media_type='application/pdf', filename=filename)
+
+    filename = generate_pdf_to_path(website, db)
+    return FileResponse(filename, media_type="application/pdf", filename=filename)
 
 # Monitoring Helpers
 def get_ssl_expiry(url):
